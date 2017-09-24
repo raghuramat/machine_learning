@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn import linear_model as lm
 from sklearn import model_selection as ms
+from sklearn.tree import DecisionTreeClassifier
+
 
 # This exercise is to determine a correlation between various data points available for Boston and the median value
 # of a property
@@ -18,9 +20,9 @@ df = pd.DataFrame(boston.data)
 y = boston.target
 df.columns = boston["feature_names"]
 df['MEDIAN_PRICE'] = pd.Series(list(y))
-# df.head()
-# print(boston["DESCR"])
-# df.info()
+print(df.head())
+print(df.describe())
+print(df.info())
 
 # Columns in the data set
 # 'CRIM','ZN','INDUS','CHAS','NOX','RM','AGE','DIS','RAD','TAX','PTRATIO','B','LSTAT','MEDIAN_PRICE'
@@ -57,7 +59,7 @@ df['MEDIAN_PRICE'] = pd.Series(list(y))
 # print(np.corrcoef(df['LSTAT'], df['MEDIAN_PRICE']))  # 0.73
 # print(np.corrcoef(1/(4 + df['LSTAT']), df['MEDIAN_PRICE']))  # 0.821
 # print(np.corrcoef(np.power(df['RM'], 3), np.power(df['MEDIAN_PRICE'])))  # 0.75
-print(np.corrcoef(np.power(df['RM'], 4), np.power(df['MEDIAN_PRICE'], 1)))
+# print(np.corrcoef(np.power(df['RM'], 4), np.power(df['MEDIAN_PRICE'], 1)))
 
 # ax = sns.regplot(1/(4 + df['LSTAT']), df['MEDIAN_PRICE'])
 # ax.set(xlabel='1 / (4 + LSTAT)')
@@ -73,9 +75,9 @@ print(np.corrcoef(np.power(df['RM'], 4), np.power(df['MEDIAN_PRICE'], 1)))
 #     return np.sqrt(np.mean((targets-predicted)**2))
 #
 #
-# dfX = df[['RM','LSTAT','PTRATIO']]
+dfX = df[['RM','LSTAT','PTRATIO']]
 # # dfX = df[['RM','LSTAT']]
-# dfY = 100/df['MEDIAN_PRICE']
+dfY = 100/df['MEDIAN_PRICE']
 # print(dfX.shape)
 
 # Once that fit is obtained, we do a split on data for train and test
@@ -107,4 +109,6 @@ print(np.corrcoef(np.power(df['RM'], 4), np.power(df['MEDIAN_PRICE'], 1)))
 # y_pred = ridge.predict(X_test)
 # print(rmse(y_pred, y_test))
 # print(ridge.coef_, ridge.intercept_)
+
+
 
