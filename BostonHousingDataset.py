@@ -6,6 +6,9 @@ import seaborn as sns
 from sklearn import linear_model as lm
 from sklearn import model_selection as ms
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score as accuracy, r2_score
+from sklearn import preprocessing
+from sklearn import utils
 
 
 # This exercise is to determine a correlation between various data points available for Boston and the median value
@@ -76,12 +79,12 @@ print(df.info())
 #
 #
 dfX = df[['RM','LSTAT','PTRATIO']]
-# # dfX = df[['RM','LSTAT']]
 dfY = 100/df['MEDIAN_PRICE']
+dfLStat = df[['LSTAT']]
 # print(dfX.shape)
 
 # Once that fit is obtained, we do a split on data for train and test
-# X_train, X_test, y_train, y_test = ms.train_test_split(dfX , dfY, random_state=13)
+X_train, X_test, y_train, y_test = ms.train_test_split(dfX, dfY, random_state=13)
 
 # # Below is a trial through linear regression. Limiting input params to RM, LSTAT AND PTRATIO
 # skreg = lm.LinearRegression()
@@ -109,6 +112,3 @@ dfY = 100/df['MEDIAN_PRICE']
 # y_pred = ridge.predict(X_test)
 # print(rmse(y_pred, y_test))
 # print(ridge.coef_, ridge.intercept_)
-
-
-
