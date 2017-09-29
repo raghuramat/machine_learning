@@ -79,13 +79,12 @@ print(df.info())
 #
 #
 dfX = df[['RM','LSTAT','PTRATIO']]
-dfY = 100/df['MEDIAN_PRICE']
+dfY = df['MEDIAN_PRICE']
 dfLStat = df[['LSTAT']]
 # print(dfX.shape)
 
 # Once that fit is obtained, we do a split on data for train and test
-X_train, X_test, y_train, y_test = ms.train_test_split(dfX, dfY, random_state=13)
-
+X_train, X_test, y_train, y_test = ms.train_test_split(dfLStat, dfY, random_state=13)
 # # Below is a trial through linear regression. Limiting input params to RM, LSTAT AND PTRATIO
 # skreg = lm.LinearRegression()
 # skreg.fit(X_train,y_train)

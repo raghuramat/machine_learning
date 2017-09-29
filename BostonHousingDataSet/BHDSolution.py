@@ -83,27 +83,30 @@ def learning_curve(depth, X_train, y_train, X_test, y_test):
 
     print("Decision Tree with Max Depth: ")
     print(depth)
+    print("Training set size")
+    # print(sizes)
 
     for i, s in enumerate(sizes):
 
         # Create and fit the decision tree regressor model
         regressor = DecisionTreeRegressor(max_depth=depth)
-        regressor.fit(X_train[:s], y_train[:s])
+        k = int(s)
+        regressor.fit(X_train[:k], y_train[:k])
 
         # Find the performance on the training and testing set
-        train_err[i] = performance_metric(y_train[:s], regressor.predict(X_train[:s]))
+        train_err[i] = performance_metric(y_train[:k], regressor.predict(X_train[:k]))
         test_err[i] = performance_metric(y_test, regressor.predict(X_test))
 
 
     # Plot learning curve graph
-    learning_curve_graph(sizes, train_err, test_err)
+    learning_curve_graph(sizes, train_err, test_err, depth)
 
 
-def learning_curve_graph(sizes, train_err, test_err):
+def learning_curve_graph(sizes, train_err, test_err, depth):
     '''Plot training and test error as a function of the training size.'''
 
     pl.figure()
-    pl.title('Decision Trees: Performance vs Training Size')
+    pl.title('Decision Trees: Performance vs Training Size at Depth = ' + str(depth))
     pl.plot(sizes, test_err, lw=2, label = 'test error')
     pl.plot(sizes, train_err, lw=2, label = 'training error')
     pl.legend()
