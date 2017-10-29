@@ -2,13 +2,14 @@ import pandas as pd
 import numpy as np
 from sklearn.datasets import load_boston
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn import linear_model as lm
 from sklearn import model_selection as ms
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score as accuracy, r2_score
 from sklearn import preprocessing
 from sklearn import utils
+from sklearn.linear_model import LogisticRegression
 
 
 # This exercise is to determine a correlation between various data points available for Boston and the median value
@@ -22,10 +23,10 @@ boston = load_boston()
 df = pd.DataFrame(boston.data)
 y = boston.target
 df.columns = boston["feature_names"]
-df['MEDIAN_PRICE'] = pd.Series(list(y))
-print(df.head())
-print(df.describe())
-print(df.info())
+# df['MEDIAN_PRICE'] = pd.Series(list(y))
+# print(df.head())
+# print(df.describe())
+# print(df.info())
 
 # Columns in the data set
 # 'CRIM','ZN','INDUS','CHAS','NOX','RM','AGE','DIS','RAD','TAX','PTRATIO','B','LSTAT','MEDIAN_PRICE'
@@ -53,11 +54,13 @@ print(df.info())
 # print(df.corr())
 
 # correlation in absolute terms with a greater than 65% correlation check confirms RM and LSTAT as variables to look at
-# print(df.corr().applymap(lambda x: '' if abs(x) < 0.60 else abs(int(100 * x))))
+# print(df.corr().applymap(lambda x: '' if abs(x) < 0.45 else abs(int(100 * x))))
 
 # First method is to arrive as a fit through brute force.
 # The correlation between LSTAT and target appears to be non-linear but one between RM and target appears linear.
 # Try different combinations to figure out what works.
+
+# above .45 corr is for INDUS, RM, TAX, PTRATIO, LSTAT
 
 # print(np.corrcoef(df['LSTAT'], df['MEDIAN_PRICE']))  # 0.73
 # print(np.corrcoef(1/(4 + df['LSTAT']), df['MEDIAN_PRICE']))  # 0.821
@@ -74,27 +77,30 @@ print(df.info())
 #
 
 
-# def rmse(predicted, targets):
-#     return np.sqrt(np.mean((targets-predicted)**2))
-#
-#
-dfX = df[['RM','LSTAT','PTRATIO']]
-dfY = df['MEDIAN_PRICE']
-dfLStat = df[['LSTAT']]
+def rmse(predicted, targets):
+    return np.sqrt(np.mean((targets-predicted)**2))
+
+
+# dfX = df[['INDUS', 'RM', 'TAX', 'PTRATIO', 'LSTAT']].copy()
+# dfY = df['MEDIAN_PRICE']
+# dfLStat = df[['LSTAT']]
 # print(dfX.shape)
 
-# Once that fit is obtained, we do a split on data for train and test
-X_train, X_test, y_train, y_test = ms.train_test_split(dfLStat, dfY, random_state=13)
-# # Below is a trial through linear regression. Limiting input params to RM, LSTAT AND PTRATIO
-# skreg = lm.LinearRegression()
-# skreg.fit(X_train,y_train)
-# y_pred = skreg.predict(X_test)
+# # Once that fit is obtained, we do a split on data for train and test
+X_train, X_test, y_train, y_test = ms.train_test_split(df, y, random_state=13)
+# print(X_train.shape)
+# print(X_test.shape)
 #
-# print("coeff/intercept:", skreg.coef_, skreg.intercept_)
-# print("score on train:", skreg.score(X_train, y_train))
-# print("score on test:", skreg.score(X_test, y_test))
-# print("rmse: ", rmse(y_pred, y_test))
-
+# # # Below is a trial through linear regression. Limiting input params to RM, LSTAT AND PTRATIO
+skreg = lm.LinearRegression()
+skreg.fit(X_train,y_train)
+y_pred = skreg.predict(X_test)
+#
+print("coeff/intercept:", skreg.coef_, skreg.intercept_)
+print("score on train:", skreg.score(X_train, y_train))
+print("score on test:", skreg.score(X_test, y_test))
+print("rmse: ", rmse(y_pred, y_test))
+#
 # coeffs = skreg.coef_[:]
 # intercept = skreg.intercept_
 
@@ -106,8 +112,21 @@ X_train, X_test, y_train, y_test = ms.train_test_split(dfLStat, dfY, random_stat
 
 # trying regularization with alpha = 0.5
 
-# ridge = lm.Ridge(alpha=0.5)  # alpha is the new lambda
+# ridge = lm.Ridge(alpha=1)
 # ridge.fit(X_train, y_train)
 # y_pred = ridge.predict(X_test)
 # print(rmse(y_pred, y_test))
 # print(ridge.coef_, ridge.intercept_)
+
+# This is clearly a regression problem and not a classification problem.
+# Tried Decision trees and the output was pretty bad. Read online and realized that RandomForest might be of help
+# Tried RandomForestRegressor instead.
+rf = RandomForestRegressor(n_estimators=500, oob_score=True, random_state=0)
+rf.fit(X_train, y_train)
+
+predicted_train = rf.predict(X_train)
+predicted_test = rf.predict(X_test)
+test_score = r2_score(y_test, predicted_test)
+print 'RF OOB Score', rf.oob_score_
+print 'Test Score', test_score
+print 'rmse', rmse(predicted_test, y_test)
