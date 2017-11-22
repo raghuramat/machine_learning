@@ -4,26 +4,25 @@ from keras.applications import VGG19, imagenet_utils, ResNet50
 from sklearn.datasets import load_files
 from keras.utils import np_utils
 import numpy as np
-from keras.layers import Dense, Dropout, Flatten, Activation
+from keras.layers import Dense, Dropout, Flatten, Activation, Conv2D
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
-from keras import backend as K
-from keras.optimizers import SGD, Adam
-from keras.applications.vgg16 import VGG16
+from keras import backend as K, applications
+from keras.optimizers import SGD
 from keras.preprocessing import image
 from keras.applications.vgg16 import preprocess_input
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import log_loss
-from keras.models import Model
+from keras.models import Model, Sequential
 import datetime
 
-K.set_image_dim_ordering('th')
+K.set_image_dim_ordering('tf')
 
 ## setting this to print to message.log file in nohup mode and check the results at a later point.
-environment = 'test'   #prod
+environment = 'prod'   #prod
 
 if environment == 'prod':
     old_stdout = sys.stdout
-    log_file = open("message.log","w")
+    log_file = open("Resnet50_message.log","w")
     sys.stdout = log_file
 
 #################################################################
@@ -45,9 +44,9 @@ def load_dataset(path):
     vehicle_targets = np_utils.to_categorical(vehicle_targets)
     return vehicle_files, vehicle_targets
 
-train_files, train_targets = load_dataset('data/train')
-valid_files, valid_targets = load_dataset('data/valid')
-test_files, test_targets = load_dataset('data/test')
+train_files, train_targets = load_dataset('../data/train')
+valid_files, valid_targets = load_dataset('../data/valid')
+test_files, test_targets = load_dataset('../data/test')
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -59,7 +58,7 @@ def load_image(infilename):
     return data
 
 #### train array
-train_array = np.empty([len(train_files), 3, new_height, new_width])
+train_array = np.empty([len(train_files), new_height, new_width, 3])
 i = 0
 for x in train_array:
     train_array[i] = load_image(train_files[i])
@@ -67,7 +66,7 @@ for x in train_array:
 train_array=np.array(train_array)
 
 #### test array
-test_array = np.empty([len(test_files), 3, new_height, new_width])
+test_array = np.empty([len(test_files), new_height, new_width, 3])
 i = 0
 for x in test_array:
     test_array[i] = load_image(test_files[i])
@@ -75,7 +74,7 @@ for x in test_array:
 test_array=np.array(test_array)
 
 #### valid array
-valid_array = np.empty([len(valid_files), 3, new_height, new_width])
+valid_array = np.empty([len(valid_files), new_height, new_width, 3])
 i = 0
 for x in valid_array:
     valid_array[i] = load_image(valid_files[i])
@@ -104,15 +103,40 @@ print "y_valid", y_valid.shape
 
 # Create the model
 def create_model(img_rows, img_cols, channel=1, num_classes=None):
-    model = ResNet50(weights='imagenet', include_top=True)
-    model.layers.pop()
-    model.outputs = [model.layers[-1].output]
-    model.layers[-1].outbound_nodes = []
-    x = Dense(num_classes, activation='softmax')(model.output)
-    model = Model(model.input, x)
+    model = ResNet50(weights='imagenet', include_top=False)
+    print model.summary()
+    print "Output", model.output
+    print "Output shape", model.output_shape[1:]
+
+    custom_model = Sequential()
+    custom_model = Dense(len(num_classes), activation='softmax')(model.output_shape[1:])
+
+    custom_model.add(Conv2D(32, (3, 3), input_shape=(new_width, new_height, 3)))
+    custom_model.add(Activation('relu'))
+    custom_model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    custom_model.add(Conv2D(32, (3, 3)))
+    custom_model.add(Activation('relu'))
+    custom_model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    custom_model.add(Conv2D(64, (3, 3)))
+    custom_model.add(Activation('relu'))
+    custom_model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    custom_model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
+    custom_model.add(Dense(64))
+    custom_model.add(Activation('relu'))
+    custom_model.add(Dropout(0.5))
+    custom_model.add(Dense(num_classes))
+    custom_model.add(Activation('sigmoid'))
+
+    custom_model.load_weights('model_created/custom_weights.h5')
+    model = Model(input=model.input, output=custom_model(model.output))
+
+    for layer in model.layers[:10]:
+        layer.trainable = False
 
     sgd = SGD(lr=1e-3, decay=1e-6, momentum=0.9, nesterov=True)
-    adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=1e-6)
     model.compile(optimizer=sgd, loss='categorical_crossentropy', metrics=['accuracy'])
 
     return model
@@ -121,27 +145,30 @@ img_rows, img_cols = 224, 224 # Resolution of inputs
 channel = 3
 num_classes = 5
 batch_size = 20
-nb_epoch = 50
+nb_epoch = 10
 
 # Load our model
 model = create_model(img_rows, img_cols, channel, num_classes)
 print "Model Summary", model.summary()
 
 # # Start training
-model.fit(X_train, y_train,batch_size=batch_size,epochs=nb_epoch,shuffle=True,verbose=1,validation_data=(X_valid, y_valid))
+model.fit(X_train, y_train,batch_size=batch_size,epochs=nb_epoch,shuffle=True,verbose=1,validation_data=(X_test, y_test))
+
+scores = model.evaluate(X_test, y_test, verbose=0)
+print("%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
+
+model_json = model.to_json()
+with open("Resnet50_Modified.json", "w") as json_file:
+     json_file.write(model_json)
+model.save_weights("Resnet50_Modified.h5")
+print("Saved model to disk")
 
 # Make predictions
 predictions_test = model.predict(X_test, batch_size=batch_size, verbose=1)
 print "prediction"
 
-
-P = imagenet_utils.decode_predictions(predictions_test)
-for (i, (imagenetID, label, prob)) in enumerate(P[0]):
-	print("{}. {}: {:.2f}%".format(i + 1, label, prob * 100))
-
 # Categorical cross entropy loss score
 score = log_loss(y_test, predictions_test)
-print("Test set accuracy for %0.2f lrate and %d epoch: %.2f%%" % (1e-3, nb_epoch, (score[1] * 100)))
 
 if environment == 'prod':
     sys.stdout = old_stdout

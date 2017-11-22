@@ -5,7 +5,7 @@ from sklearn.datasets import load_files
 from keras.utils import np_utils
 import numpy as np
 import pandas as pd
-from keras.layers import Dense, Dropout, Flatten, Activation
+from keras.layers import Dense, Dropout, Flatten, Activation, Conv2D
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
 from keras import backend as K
 from keras.optimizers import SGD, Adam
@@ -14,7 +14,7 @@ from keras.preprocessing import image
 from keras.applications.vgg16 import preprocess_input
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import log_loss
-from keras.models import Model
+from keras.models import Model, Sequential
 import datetime
 
 K.set_image_dim_ordering('th')
@@ -46,9 +46,9 @@ def load_dataset(path):
     vehicle_targets = np_utils.to_categorical(vehicle_targets)
     return vehicle_files, vehicle_targets
 
-train_files, train_targets = load_dataset('data/train')
-valid_files, valid_targets = load_dataset('data/valid')
-test_files, test_targets = load_dataset('data/test')
+train_files, train_targets = load_dataset('../data/train')
+valid_files, valid_targets = load_dataset('../data/valid')
+test_files, test_targets = load_dataset('../data/test')
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -105,21 +105,36 @@ print "y_valid", y_valid.shape
 
 # Create the model
 def create_model(img_rows, img_cols, channel=1, num_classes=None):
-    model = VGG16(weights='imagenet', include_top=True)
-    model.load_weights('weights/vgg16_weights_th_dim_ordering_th_kernels.h5')  # Loading weights of vgg16.
-    # trying to fine tune by popping last layer and adding a softmax
-    model.layers.pop()
-    model.outputs = [model.layers[-1].output]
-    model.layers[-1].outbound_nodes = []
-    x = Dense(num_classes, activation='softmax')(model.output)
-    model = Model(model.input, x)
-    # To set the first 8 layers to non-trainable (weights will not be updated)
-    for layer in model.layers[:10]:
+    model = VGG16(weights='imagenet', include_top=False)
+
+    custom_model = Sequential()
+    custom_model.add(Conv2D(32, (3, 3), input_shape=model.output_shape[1:]))
+    custom_model.add(Activation('relu'))
+    custom_model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    custom_model.add(Conv2D(32, (3, 3)))
+    custom_model.add(Activation('relu'))
+    custom_model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    custom_model.add(Conv2D(64, (3, 3)))
+    custom_model.add(Activation('relu'))
+    custom_model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    custom_model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
+    custom_model.add(Dense(64))
+    custom_model.add(Activation('relu'))
+    custom_model.add(Dropout(0.5))
+    custom_model.add(Dense(num_classes))
+    custom_model.add(Activation('sigmoid'))
+
+    custom_model.load_weights('model_created/custom_weights.h5')
+    model = Model(input=model.input, output=custom_model(model.output))
+
+    for layer in model.layers[:25]:
         layer.trainable = False
 
     # Using sgd works at batch size 16. Using adam even at batch size 8 is taking the instance OOM
     sgd = SGD(lr=1e-3, decay=1e-6, momentum=0.9, nesterov=True)
-    adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=1e-6)
     model.compile(optimizer=sgd, loss='categorical_crossentropy', metrics=['accuracy'])
 
     return model
@@ -128,7 +143,7 @@ img_rows, img_cols = 224, 224 # Resolution of inputs
 channel = 3
 num_classes = 5
 batch_size = 20
-nb_epoch = 30
+nb_epoch = 45
 
 # Load our model
 model = create_model(img_rows, img_cols, channel, num_classes)
@@ -137,10 +152,15 @@ print "Model Summary", model.summary()
 # # Start training
 model.fit(X_train, y_train,batch_size=batch_size,epochs=nb_epoch,shuffle=True,verbose=1,validation_data=(X_valid, y_valid))
 
+model_json = model.to_json()
+with open("VGG16_Modified.json", "w") as json_file:
+     json_file.write(model_json)
+model.save_weights("VGG16_Modified.h5")
+print("Saved model to disk")
+
 # Make predictions
 predictions_test = model.predict(X_test, batch_size=batch_size, verbose=1)
 print "prediction"
-
 
 P = imagenet_utils.decode_predictions(predictions_test)
 for (i, (imagenetID, label, prob)) in enumerate(P[0]):

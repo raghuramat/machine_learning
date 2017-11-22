@@ -1,12 +1,15 @@
 import pandas as pd
 import numpy as np
+import sklearn
 from sklearn.datasets import load_boston
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn import linear_model as lm
 from sklearn import model_selection as ms
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score as accuracy, r2_score
+from sklearn.metrics import mean_squared_error as mse
 from sklearn import preprocessing
 from sklearn import utils
 from sklearn.linear_model import LogisticRegression
@@ -22,8 +25,9 @@ from sklearn.linear_model import LogisticRegression
 boston = load_boston()
 df = pd.DataFrame(boston.data)
 y = boston.target
-df.columns = boston["feature_names"]
+# df.columns = boston["feature_names"]
 # df['MEDIAN_PRICE'] = pd.Series(list(y))
+
 # print(df.head())
 # print(df.describe())
 # print(df.info())
@@ -72,39 +76,33 @@ df.columns = boston["feature_names"]
 # ax.set(ylabel='MEDIAN_PRICE')
 # plt.show(block=True)
 
-# the above is what could be the best accuracy levels achieved. Only relation with lstat
-# we will use sklearn below to find out from different regression models
-#
-
-
 def rmse(predicted, targets):
-    return np.sqrt(np.mean((targets-predicted)**2))
-
+   return mse(targets, predicted)
 
 # dfX = df[['INDUS', 'RM', 'TAX', 'PTRATIO', 'LSTAT']].copy()
 # dfY = df['MEDIAN_PRICE']
 # dfLStat = df[['LSTAT']]
 # print(dfX.shape)
 
-# # Once that fit is obtained, we do a split on data for train and test
+# Once that fit is obtained, we do a split on data for train and test
 X_train, X_test, y_train, y_test = ms.train_test_split(df, y, random_state=13)
 # print(X_train.shape)
 # print(X_test.shape)
+# #
+# # # # Below is a trial through linear regression. Limiting input params to RM, LSTAT AND PTRATIO
+# skreg = lm.LinearRegression()
+# skreg.fit(X_train,y_train)
+# y_pred = skreg.predict(X_test)
 #
-# # # Below is a trial through linear regression. Limiting input params to RM, LSTAT AND PTRATIO
-skreg = lm.LinearRegression()
-skreg.fit(X_train,y_train)
-y_pred = skreg.predict(X_test)
-#
-print("coeff/intercept:", skreg.coef_, skreg.intercept_)
-print("score on train:", skreg.score(X_train, y_train))
-print("score on test:", skreg.score(X_test, y_test))
-print("rmse: ", rmse(y_pred, y_test))
+# print("coeff/intercept:", skreg.coef_, skreg.intercept_)
+# print("score on train:", skreg.score(X_train, y_train))
+# print("score on test:", skreg.score(X_test, y_test))
+# print("rmse: ", rmse(y_pred, y_test))
 #
 # coeffs = skreg.coef_[:]
 # intercept = skreg.intercept_
-
-# trying k-fold validation on linear regression with varying k
+#
+# # trying k-fold validation on linear regression with varying k
 # k=5
 # kscores = ms.cross_val_score(skreg, X_train, y_train, cv=5)
 # print(kscores)
@@ -112,21 +110,25 @@ print("rmse: ", rmse(y_pred, y_test))
 
 # trying regularization with alpha = 0.5
 
-# ridge = lm.Ridge(alpha=1)
+# ridge = lm.Ridge(alpha=0.8)
 # ridge.fit(X_train, y_train)
 # y_pred = ridge.predict(X_test)
-# print(rmse(y_pred, y_test))
-# print(ridge.coef_, ridge.intercept_)
+# print("score on train", ridge.score(X_train, y_train))
+# print("score on test",ridge.score(X_test, y_test))
+# print("RMSE : ", rmse(y_pred, y_test))
+# print("Coefficients : ", ridge.coef_)
+# print("Intercept : ",  ridge.intercept_)
 
-# This is clearly a regression problem and not a classification problem.
-# Tried Decision trees and the output was pretty bad. Read online and realized that RandomForest might be of help
 # Tried RandomForestRegressor instead.
-rf = RandomForestRegressor(n_estimators=500, oob_score=True, random_state=0)
+rf = RandomForestRegressor(n_estimators=500, random_state=0)
 rf.fit(X_train, y_train)
 
-predicted_train = rf.predict(X_train)
 predicted_test = rf.predict(X_test)
-test_score = r2_score(y_test, predicted_test)
-print 'RF OOB Score', rf.oob_score_
-print 'Test Score', test_score
-print 'rmse', rmse(predicted_test, y_test)
+print('RMSE : ', rmse(predicted_test, y_test))
+print('Feature Importances : ', rf.feature_importances_)
+
+# RandomForestRegressor with n_estimators as 500 gave us RMSE of 12.12
+# Features importances came up as array([ 0.03061825,  0.00102063,  0.00857366,  0.00063463,  0.01334177,
+#        0.4089343 ,  0.01316368,  0.08399604,  0.00410589,  0.01628876,
+#        0.01369073,  0.01124424,  0.39438742]))
+# There are quite a lot of features which we can just ignore given this output.
